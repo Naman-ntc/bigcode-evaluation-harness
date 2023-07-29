@@ -91,6 +91,21 @@ class GeneralAPPS(Task):
         """Builds the reference solution for the doc (sample from the test dataset)."""
         return None
 
+    @staticmethod
+    def _stop_at_stop_token(decoded_string, stop_tokens):
+        """
+        Produces the prefix of decoded_string that ends at the first occurrence of
+        a stop_token.
+        WARNING: the decoded_string *must not* include the prompt, which may have stop tokens
+        itself.
+        """
+        min_stop_index = len(decoded_string)
+        for stop_token in stop_tokens:
+            stop_index = decoded_string.find(stop_token)
+            if stop_index != -1 and stop_index < min_stop_index:
+                min_stop_index = stop_index
+        return decoded_string[:min_stop_index]
+
     def postprocess_generation(self, generation, idx):
         """Defines the postprocessing for a LM generation.
         :param generation: str
@@ -101,10 +116,13 @@ class GeneralAPPS(Task):
         """
         try:
             generation = generation.split("\nANSWER:", 1)[1]
+            generation = self._stop_at_stop_token(generation, self.stop_words)
+            generation = generation.strip()
         except IndexError:
             # happens when prompts were very long and got truncated
             pass
         return generation
+
 
     def process_results(self, generations, references):
         """Takes the list of LM generations and evaluates them against ground truth references,

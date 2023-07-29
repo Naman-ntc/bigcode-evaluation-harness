@@ -92,5 +92,6 @@ class HumanEval(Task):
         results, _ = code_metric.compute(
             references=references,
             predictions=generations,
+            num_workers=None
         )
         return results
