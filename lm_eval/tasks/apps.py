@@ -9,6 +9,8 @@ Homepage: https://github.com/hendrycks/apps
 
 import json
 
+import numpy as np
+import pandas as pd
 from evaluate import load
 
 from lm_eval.base import Task
@@ -31,13 +33,15 @@ def create_all_tasks():
     :return: {task_name: task}
         e.g. {apps-interview: Task, apps-competitoon: Task}
     """
-    return {f"apps-{level}": create_task(level) for level in LEVELS}
+    tasks1 = {f"apps-{level}": create_task(level) for level in LEVELS}
+    tasks2 = {f"apps-{level}-cfstyle": create_task(level, ["codeforces", "codechef", "atcoder"]) for level in LEVELS}
+    tasks2 = {f"apps-{level}-cf-kattis": create_task(level, ["codeforces", "codechef", "atcoder", "kattis"]) for level in LEVELS}
+    return {**tasks1, **tasks2}
 
-
-def create_task(level):
+def create_task(level, platforms=None):
     class APPS(GeneralAPPS):
         def __init__(self):
-            super().__init__(level)
+            super().__init__(level, platforms)
 
     return APPS
 
@@ -50,16 +54,29 @@ class GeneralAPPS(Task):
     DATASET_PATH = "codeparrot/apps"
     DATASET_NAME = None
 
-    def __init__(self, level):
+    def __init__(self, level, platforms=None):
         self.DATASET_NAME = level
+        self.platforms = platforms
         super().__init__(
             stop_words=["\nQUESTION", "\n---", "\nANSWER"],
             requires_execution=True,
         )
+        self.filter_by_platform()
+
+
+    def filter_by_platform(self):
+        self.dataset = self.dataset["test"]
+        platforms = pd.Series(self.dataset["url"]).str.split('.')
+        platforms0 = platforms.str[0].str.split('/').str[-1]
+        platforms0[platforms0.isin(["open", "www"])] = platforms[platforms0.isin(["open", "www"])].str[1]
+        if self.platforms is not None:
+            indices = np.where(platforms0.isin(self.platforms).values)[0]
+            self.dataset = self.dataset.select(indices)
+            print(f"Filtering by platforms: {self.platforms} - {len(self.dataset)} problems left")
 
     def get_dataset(self):
         """Returns dataset for the task or an iterable of any object, that get_prompt can handle"""
-        return self.dataset["test"]
+        return self.dataset
 
     def get_prompt(self, doc):
         """Generate prompts for APPS
@@ -132,8 +149,10 @@ class GeneralAPPS(Task):
         :param references: list(str)
             list of str containing refrences (not needed for APPS Task)
         """
-        code_metric = load("codeparrot/apps_metric")
-        results = code_metric.compute(
-            predictions=generations, k_list=[1, 10, 100], level=self.DATASET_NAME
-        )
+        # code_metric = load("codeparrot/apps_metric")
+        # results = code_metric.compute(
+        #     predictions=generations, k_list=[1, 10, 100], level=self.DATASET_NAME
+        # )
+        from lm_eval.tasks.custom_metrics.apps_custom_metrics.utils import compute_metrics
+        results = compute_metrics(generations, self.DATASET_NAME, k_list=[1, 10, 100])
         return results
