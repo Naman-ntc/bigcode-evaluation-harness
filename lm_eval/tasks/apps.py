@@ -35,8 +35,8 @@ def create_all_tasks():
     """
     tasks1 = {f"apps-{level}": create_task(level) for level in LEVELS}
     tasks2 = {f"apps-{level}-cfstyle": create_task(level, ["codeforces", "codechef", "atcoder"]) for level in LEVELS}
-    tasks2 = {f"apps-{level}-cf-kattis": create_task(level, ["codeforces", "codechef", "atcoder", "kattis"]) for level in LEVELS}
-    return {**tasks1, **tasks2}
+    tasks3 = {f"apps-{level}-cf-kattis": create_task(level, ["codeforces", "codechef", "atcoder", "kattis"]) for level in LEVELS}
+    return {**tasks1, **tasks2, **tasks3}
 
 def create_task(level, platforms=None):
     class APPS(GeneralAPPS):
