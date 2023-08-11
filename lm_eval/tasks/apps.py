@@ -154,5 +154,5 @@ class GeneralAPPS(Task):
         #     predictions=generations, k_list=[1, 10, 100], level=self.DATASET_NAME
         # )
         from lm_eval.tasks.custom_metrics.apps_custom_metrics.utils import compute_metrics
-        results = compute_metrics(generations, self.DATASET_NAME, k_list=[1, 10, 100])
+        results = compute_metrics(self.dataset, generations, k_list=[1, 10, 100])
         return results
