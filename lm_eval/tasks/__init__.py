@@ -1,10 +1,23 @@
 from pprint import pprint
 
-from . import (apps, codexglue_code_to_text, codexglue_text_to_text, conala,
-               concode, ds1000, gsm, humaneval, mbpp, multiple, instruct_humaneval)
+from . import (
+    apps,
+    code_contests,
+    codexglue_code_to_text,
+    codexglue_text_to_text,
+    conala,
+    concode,
+    ds1000,
+    gsm,
+    humaneval,
+    mbpp,
+    multiple,
+    instruct_humaneval,
+)
 
 TASK_REGISTRY = {
     **apps.create_all_tasks(),
+    **code_contests.create_all_tasks(),
     **codexglue_code_to_text.create_all_tasks(),
     **codexglue_text_to_text.create_all_tasks(),
     **multiple.create_all_tasks(),
