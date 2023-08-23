@@ -12,6 +12,7 @@ import json
 import numpy as np
 import pandas as pd
 from evaluate import load
+from datasets import concatenate_datasets
 
 from lm_eval.base import Task
 
@@ -25,49 +26,40 @@ _CITATION = """
 """
 
 
-LEVELS = ["introductory", "interview", "competition"]
+LEVELS = ["easy", "medium", "hard"]
+DIFFICULTIES = {
+    "easy": [7, 8, 9],
+    "medium": [10, 11],
+    "hard": [12, 13, 14, 15, 16, 17, 18, 19, 20],
+}
 
 
 def create_all_tasks():
     """Creates a dictionary of tasks from a list of levels
     :return: {task_name: task}
-        e.g. {apps-interview: Task, apps-competitoon: Task}
+        e.g. {codecontests: Task, codecontests-easy: Task}
     """
-    tasks1 = {f"apps-{level}": create_task(level) for level in LEVELS}
-    tasks2 = {
-        f"apps-{level}-cfstyle": create_task(
-            level, ["codeforces", "codechef", "atcoder"]
-        )
-        for level in LEVELS
-    }
-    tasks3 = {
-        f"apps-{level}-cf-kattis": create_task(
-            level, ["codeforces", "codechef", "atcoder", "kattis"]
-        )
-        for level in LEVELS
-    }
-    return {**tasks1, **tasks2, **tasks3}
+    tasks1 = {f"codecontests-{level}": create_task(level) for level in LEVELS}
+    return {"codecontests": create_task(), **tasks1}
 
 
-def create_task(level, platforms=None):
-    class APPS(GeneralAPPS):
+def create_task(level=None):
+    class CodeContests(GeneralCodeContests):
         def __init__(self):
-            super().__init__(level, platforms)
+            super().__init__(level)
 
-    return APPS
+    return CodeContests
 
 
-class GeneralAPPS(Task):
+class GeneralCodeContests(Task):
     """A task represents an entire benchmark including its dataset, problems,
     answers, generation settings and evaluation methods.
     """
 
-    DATASET_PATH = "codeparrot/apps"
-    DATASET_NAME = None
+    DATASET_PATH = "deepmind/code_contests"
 
-    def __init__(self, level, platforms=None):
-        self.DATASET_NAME = level
-        self.platforms = platforms
+    def __init__(self, level):
+        self.level = level
         super().__init__(
             stop_words=["\nQUESTION", "\n---", "\nANSWER"],
             requires_execution=True,
@@ -75,75 +67,32 @@ class GeneralAPPS(Task):
         self.filter_by_platform()
 
     def filter_by_platform(self):
-        self.dataset = self.dataset["test"]
-        platforms = pd.Series(self.dataset["url"]).str.split(".")
-        platforms0 = platforms.str[0].str.split("/").str[-1]
-        platforms0[platforms0.isin(["open", "www"])] = platforms[
-            platforms0.isin(["open", "www"])
-        ].str[1]
-        if self.platforms is not None:
-            indices = np.where(platforms0.isin(self.platforms).values)[0]
+        self.dataset1 = self.dataset["test"]
+        self.dataset2 = self.dataset["valid"]
+        self.dataset = concatenate_datasets([self.dataset1, self.dataset2])
+
+        difficulty = pd.Series(self.dataset["difficulty"])
+
+        if self.level is not None:
+            indices = np.where(difficulty.isin(DIFFICULTIES[self.level]))[0]
             self.dataset = self.dataset.select(indices)
             print(
-                f"Filtering by platforms: {self.platforms} - {len(self.dataset)} problems left"
+                f"Filtering by level: {self.level} - {len(self.dataset)} problems left"
             )
 
     def get_dataset(self):
         """Returns dataset for the task or an iterable of any object, that get_prompt can handle"""
         return self.dataset
 
-    def get_prompt_old(self, doc):
+    def get_prompt(self, doc):
         """Generate prompts for APPS
         Finetuning setup: prompt=question  with some starter code and function name if they exist.
         We also specify the type of the prompt, i.e. whether it is call-based or standard input-based.
         """
-        starter_code = None if len(doc["starter_code"]) == 0 else doc["starter_code"]
-        try:
-            input_outpout = json.loads(doc["input_output"])
-            fn_name = (
-                None if not input_outpout.get("fn_name") else input_outpout["fn_name"]
-            )
-        except ValueError:
-            fn_name = None
         prompt = "\nQUESTION:\n"
-        prompt += doc["question"]
-        if starter_code:
-            prompt += starter_code
-        if not fn_name:
-            call_format = "\nUse Standard Input format"
-            prompt += call_format
-        else:
-            call_format = "\nUse Call-Based format"
-            prompt += call_format
-        prompt += "\nANSWER:\n"
-        return prompt
-
-    def get_prompt(self, doc):
-        starter_code = "" if len(doc["starter_code"]) == 0 else doc["starter_code"]
-
-        try:
-            input_outpout = json.loads(doc["input_output"])
-            fn_name = (
-                None if not input_outpout.get("fn_name") else input_outpout["fn_name"]
-            )
-        except ValueError:
-            fn_name = None
-
-        answer_type = (
-            "\nUse Standard Input format\n"
-            if not fn_name
-            else "\nUse Call-Based format\n"
-        )
-        question_str = doc["question"]
-        prompt = (
-            "\nQUESTION:\n"
-            + question_str
-            + "\n"
-            + starter_code
-            + "\n"
-            + answer_type
-            + "\nANSWER:\n"
-        )
+        question_str = doc["description"]
+        answer_type = "\nUse Standard Input format\n"
+        prompt = "\nQUESTION:\n" + question_str + "\n" + answer_type + "\nANSWER:\n"
         return prompt
 
     def get_reference(self, doc):
@@ -203,11 +152,19 @@ class GeneralAPPS(Task):
 
 
 if __name__ == "__main__":
-    task = GeneralAPPS("introductory", ["codeforces", "codechef", "atcoder", "kattis"])
+    task = GeneralCodeContests("easy")
     print(task)
     dataset = task.get_dataset()
-    p1 = task.get_prompt(dataset[0])
-    p2 = task.get_prompt2(dataset[0])
-    print(p1 == p2)
+    sample = dataset[0]
+    p1 = task.get_prompt(sample)
     print(p1)
-    print(p2)
+
+    public = sample["public_tests"]
+    private = sample["private_tests"]
+    generated = sample["generated_tests"]
+    all_inputs = public["input"] + private["input"] + generated["input"]
+    all_outputs = public["output"] + private["output"] + generated["output"]
+    assert len(all_inputs) == len(all_outputs)
+    in_outs = {"inputs": all_inputs, "outputs": all_outputs}
+
+    print(len(all_inputs))
