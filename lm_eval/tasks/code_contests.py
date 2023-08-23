@@ -143,7 +143,7 @@ class GeneralCodeContests(Task):
         # results = code_metric.compute(
         #     predictions=generations, k_list=[1, 10, 100], level=self.DATASET_NAME
         # )
-        from lm_eval.tasks.custom_metrics.apps_custom_metrics.utils import (
+        from lm_eval.tasks.custom_metrics.code_contests_custom_metrics.utils import (
             compute_metrics,
         )
 

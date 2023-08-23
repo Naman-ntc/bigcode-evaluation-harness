@@ -11,16 +11,20 @@ from tqdm import tqdm
 DATASET = "codeparrot/apps"
 TIMEOUT = 10
 
+
 def check_correctness(sample, generation, timeout, debug=True):
     """Check correctness of code generation with a global timeout.
     The global timeout is to catch some extreme/rare cases not handled by the timeouts
     inside `run_test`"""
+
     def _temp_run(sample, generation, debug, result):
         result.append(run_test(sample, test=generation, debug=debug))
 
     manager = multiprocessing.Manager()
     result = manager.list()
-    p = multiprocessing.Process(target=_temp_run, args=(sample, generation, debug, result))
+    p = multiprocessing.Process(
+        target=_temp_run, args=(sample, generation, debug, result)
+    )
     p.start()
     p.join(timeout=timeout + 1)
     if p.is_alive():
@@ -62,7 +66,7 @@ def evaluate_generations_by_problem(args):
         except Exception as e:
             if debug:
                 print(f"Compilation failed, test framework exception = {repr(e)}{e}\n")
-            break
+            # break
         finally:
             assert isinstance(curr_res, list)
             res.append(curr_res)
@@ -73,11 +77,16 @@ def evaluate_generations_by_problem(args):
             print("\n")
             print("Result\n")
             print(res[i])
-            print("*"*30+'\n\n')
+            print("*" * 30 + "\n\n")
     return res
-            
 
-def evaluate_generations(apps_eval, generations_list: list[list[str]], level: str = "all", debug: bool = False):
+
+def evaluate_generations(
+    apps_eval,
+    generations_list: list[list[str]],
+    level: str = "all",
+    debug: bool = False,
+):
     """We take the list of code generations and try to compile them
      and the run their corresponding unit tests which are retrieved from the APPS dataset.
 
@@ -88,7 +97,7 @@ def evaluate_generations(apps_eval, generations_list: list[list[str]], level: st
     Returns:
         results: dictionary of results, key is the problem index, value is a list of results for each generation
         [-2] = compile error, [-1] = runtime error [False] = failed test case [True] = passed test case
-     """
+    """
 
     # generations are code generations in the same order of the dataset
     # apps_eval = load_dataset(DATASET, split="test", difficulties=[level])
@@ -100,7 +109,10 @@ def evaluate_generations(apps_eval, generations_list: list[list[str]], level: st
 
     with tqdm(total=len(inputs)) as pbar:
         with ProcessPoolExecutor(max_workers=None) as executor:
-            futures = {executor.submit(evaluate_generations_by_problem, arg): index for arg, index in inputs}
+            futures = {
+                executor.submit(evaluate_generations_by_problem, arg): index
+                for arg, index in inputs
+            }
 
             results = {}
             for future in as_completed(futures):
@@ -108,10 +120,11 @@ def evaluate_generations(apps_eval, generations_list: list[list[str]], level: st
                 results[index] = future.result()
                 pbar.update(1)
 
-    
-    assert len(results) == len(inputs), f"results = {len(results)} inputs = {len(inputs)} {results=}"
+    assert len(results) == len(
+        inputs
+    ), f"results = {len(results)} inputs = {len(inputs)} {results=}"
     # results = {i: r for r, (_, i) in zip(results, inputs)}
-    
+
     return results
 
 
@@ -130,10 +143,14 @@ def estimate_pass_at_k(num_samples, num_correct, k):
         assert len(num_samples) == len(num_correct)
         num_samples_it = iter(num_samples)
 
-    return np.array([estimator(int(n), int(c), k) for n, c in zip(num_samples_it, num_correct)])
+    return np.array(
+        [estimator(int(n), int(c), k) for n, c in zip(num_samples_it, num_correct)]
+    )
 
 
-def get_results(results: Dict[int, list], count_errors: bool = False, k_list: list = [1, 10, 100]):
+def get_results(
+    results: Dict[int, list], count_errors: bool = False, k_list: list = [1, 10, 100]
+):
     """
     Given the results evaluated against the testcases we output some statistics.
     For single generations:
@@ -173,8 +190,12 @@ def get_results(results: Dict[int, list], count_errors: bool = False, k_list: li
         runtime_errors = len([e for e in res if -1 in e])
         total_testcases = len(res)
         if count_errors:
-            print(f"number of compile errors = {compile_errors} avg = {compile_errors / total_testcases}")
-            print(f"number of runtime errors = {runtime_errors} avg = {runtime_errors / total_testcases}")
+            print(
+                f"number of compile errors = {compile_errors} avg = {compile_errors / total_testcases}"
+            )
+            print(
+                f"number of runtime errors = {runtime_errors} avg = {runtime_errors / total_testcases}"
+            )
             print(f"number of problems evaluated = {total_testcases}")
 
         print(f"Average Accuracy : {np.mean(per_prob_res)}")
@@ -189,12 +210,12 @@ def get_results(results: Dict[int, list], count_errors: bool = False, k_list: li
         # total is list with nb generations per task (task=index)
         # correct is number of generations that passed all tests per task
         total = []
-        correct = [] 
+        correct = []
         for index in results:
             all_correct = []
             for generation in results[index]:
                 gen = np.array(generation)
-                all_correct.append(np.all(gen>0))
+                all_correct.append(np.all(gen > 0))
             total.append(len(all_correct))
             correct.append(sum(all_correct))
         total = np.array(total)
@@ -202,12 +223,24 @@ def get_results(results: Dict[int, list], count_errors: bool = False, k_list: li
         ks = k_list
         print(total.tolist())
         print(correct.tolist())
-        pass_at_k = {f"pass@{k}": estimate_pass_at_k(total, correct, k).mean() for k in ks if (total >= k).all()}
+        pass_at_k = {
+            f"pass@{k}": estimate_pass_at_k(total, correct, k).mean()
+            for k in ks
+            if (total >= k).all()
+        }
         print(pass_at_k)
         metrics["pass_at_k"] = pass_at_k
     return metrics
 
-def compute_metrics(dataset, generations, level="all", k_list=[1, 10, 100], count_errors=True, debug=False):
+
+def compute_metrics(
+    dataset,
+    generations,
+    level="all",
+    k_list=[1, 10, 100],
+    count_errors=True,
+    debug=False,
+):
     """Return metrics for the given generations.
     Args:
         generations: list of code generations for each problem (each generation is a list of generations)
@@ -215,7 +248,7 @@ def compute_metrics(dataset, generations, level="all", k_list=[1, 10, 100], coun
         count_errors: whether to count compilation and runtime errors when using single generations
         level: difficulty level in APPS dataset that was used for the given generations (from: "all", "introductory", "interview", "competition")
     Returns:
-        metrics: dict of metrics  
+        metrics: dict of metrics
 
     Examples:
 
@@ -241,6 +274,7 @@ def compute_metrics(dataset, generations, level="all", k_list=[1, 10, 100], coun
     results = evaluate_generations(dataset, generations, level=level, debug=debug)
     metrics = get_results(results, count_errors=count_errors, k_list=k_list)
     return metrics
+
 
 # import doctest
 # doctest.testmod()
