@@ -147,7 +147,9 @@ class GeneralCodeContests(Task):
             compute_metrics,
         )
 
-        results = compute_metrics(self.dataset, generations, k_list=[1, 10, 100])
+        results = compute_metrics(
+            self.dataset, generations, k_list=[1, 5, 10, 25, 50, 75, 100, 125, 150]
+        )
         return results
 
 
