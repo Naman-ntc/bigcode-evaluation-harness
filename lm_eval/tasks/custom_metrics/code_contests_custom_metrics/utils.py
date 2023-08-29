@@ -43,7 +43,7 @@ def evaluate_generations_by_problem(args):
     sample = args[1]
     level: str = args[2]
     debug: bool = args[3]
-    verbose: bool = False
+    verbose: bool = debug
 
     res = []
     for o_idx, o in enumerate(problem_generations):
@@ -108,7 +108,7 @@ def evaluate_generations(
     ]
 
     with tqdm(total=len(inputs)) as pbar:
-        with ProcessPoolExecutor(max_workers=None) as executor:
+        with ProcessPoolExecutor(max_workers=1 if debug else None) as executor:
             futures = {
                 executor.submit(evaluate_generations_by_problem, arg): index
                 for arg, index in inputs
@@ -180,7 +180,7 @@ def get_results(
         res = []
         per_prob_res = []
         all_correct = []
-        for index in results:
+        for index in sorted(results):
             problem_results = np.asarray(results[index])
             res.extend(problem_results)
             per_prob_res.append(np.mean(problem_results > 0))
@@ -198,6 +198,7 @@ def get_results(
             )
             print(f"number of problems evaluated = {total_testcases}")
 
+        print(all_correct)
         print(f"Average Accuracy : {np.mean(per_prob_res)}")
         print(f"Strict Accuracy : {np.mean(all_correct)}")
         metrics["avg_accuracy"] = np.mean(per_prob_res)
@@ -211,7 +212,8 @@ def get_results(
         # correct is number of generations that passed all tests per task
         total = []
         correct = []
-        for index in results:
+        assert all([isinstance(x, int) for x in results.keys()])
+        for index in sorted(results):
             all_correct = []
             for generation in results[index]:
                 gen = np.array(generation)
