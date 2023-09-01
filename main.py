@@ -168,13 +168,19 @@ def main():
         print(f"Selected Tasks: {task_names}")
 
     results = {}
+    all_results = {}
     if args.load_generations_path:
         # here we don't generate code but only evaluate previously computed generations
         if accelerator.is_main_process:
             print("evaluation only mode")
         evaluator = Evaluator(accelerator, None, None, args)
         for task in task_names:
-            results[task] = evaluator.evaluate(task)
+            evaluation_results = evaluator.evaluate(task)
+            if isinstance(evaluation_results, tuple):
+                results[task] = evaluation_results[0]
+                all_results[task] = evaluation_results[1]
+            else:
+                results[task] = evaluation_results
 
     else:
         # here we generate code and save it (evaluation is optional but True by default)
@@ -253,7 +259,12 @@ def main():
                             json.dump(references, fp)
                             print("references were saved")
             else:
-                results[task] = evaluator.evaluate(task)
+                evaluation_results = evaluator.evaluate(task)
+                if isinstance(evaluation_results, tuple):
+                    results[task] = evaluation_results[0]
+                    all_results[task] = evaluation_results[1]
+                else:
+                    results[task] = evaluation_results
 
     results["config"] = {
         "model": args.model,
@@ -261,13 +272,26 @@ def main():
         "temperature": args.temperature,
         "n_samples": args.n_samples,
     }
+    if all_results:
+        all_results["config"] = {
+            "model": args.model,
+            "revision": args.revision,
+            "temperature": args.temperature,
+            "n_samples": args.n_samples,
+        }
+
     if not args.generation_only:
-        dumped = json.dumps(results, indent=2)
+        results_dumped = json.dumps(results, indent=2)
+        if all_results:
+            all_results_dumped = json.dumps(all_results, indent=2)
         if accelerator.is_main_process:
-            print(dumped)
+            print(results_dumped)
 
         with open(args.metric_output_path, "w") as f:
-            f.write(dumped)
+            f.write(results_dumped)
+
+        with open(args.metric_output_path.replace(".json", "_all.json"), "w") as f:
+            f.write(all_results_dumped)
 
 
 if __name__ == "__main__":
