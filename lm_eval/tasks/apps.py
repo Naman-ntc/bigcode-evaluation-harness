@@ -119,31 +119,39 @@ class GeneralAPPS(Task):
         return prompt
 
     def get_prompt(self, doc):
-        starter_code = "" if len(doc["starter_code"]) == 0 else doc["starter_code"]
+        # starter_code = "" if len(doc["starter_code"]) == 0 else doc["starter_code"]
 
-        try:
-            input_outpout = json.loads(doc["input_output"])
-            fn_name = (
-                None if not input_outpout.get("fn_name") else input_outpout["fn_name"]
-            )
-        except ValueError:
-            fn_name = None
+        # try:
+        #     input_outpout = json.loads(doc["input_output"])
+        #     fn_name = (
+        #         None if not input_outpout.get("fn_name") else input_outpout["fn_name"]
+        #     )
+        # except ValueError:
+        #     fn_name = None
 
-        answer_type = (
-            "\nUse Standard Input format\n"
-            if not fn_name
-            else "\nUse Call-Based format\n"
-        )
+        # answer_type = (
+        #     "\nUse Standard Input format\n"
+        #     if not fn_name
+        #     else "\nUse Call-Based format\n"
+        # )
         question_str = doc["question"]
-        prompt = (
-            "\nQUESTION:\n"
-            + question_str
-            + "\n"
-            + starter_code
-            + "\n"
-            + answer_type
-            + "\nANSWER:\n"
-        )
+        # prompt = (
+        #     "\nQUESTION:\n"
+        #     + question_str
+        #     + "\n"
+        #     + starter_code
+        #     + "\n"
+        #     + answer_type
+        #     + "\nANSWER:\n"
+
+        # )
+        answer_type = "\nUse Standard Input format\n"
+        q_str = f"QUESTION:\n{question_str}\n{answer_type}\nANSWER:\n\n"
+        prompt = q_str
+        # q_str_tokens = self.tokenizer(q_str)["input_ids"]
+
+        # if q_str_tokens[-1] == self.tokenizer.eos_token_id:
+        #     q_str_tokens = q_str_tokens[:-1]
         return prompt
 
     def get_reference(self, doc):

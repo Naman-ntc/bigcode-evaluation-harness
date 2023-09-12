@@ -89,10 +89,12 @@ class GeneralCodeContests(Task):
         Finetuning setup: prompt=question  with some starter code and function name if they exist.
         We also specify the type of the prompt, i.e. whether it is call-based or standard input-based.
         """
-        prompt = "\nQUESTION:\n"
+        # prompt = "\nQUESTION:\n"
         question_str = doc["description"]
         answer_type = "\nUse Standard Input format\n"
-        prompt = "\nQUESTION:\n" + question_str + "\n" + answer_type + "\nANSWER:\n"
+        q_str = f"QUESTION:\n{question_str}\n{answer_type}\nANSWER:\n\n"
+        # prompt = "\nQUESTION:\n" + question_str + "\n" + answer_type + "\nANSWER:\n"
+        prompt = q_str
         return prompt
 
     def get_reference(self, doc):
