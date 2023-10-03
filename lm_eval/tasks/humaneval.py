@@ -89,9 +89,14 @@ class HumanEval(Task):
             list of str containing refrences
         """
         code_metric = load("code_eval")
-        results, _ = code_metric.compute(
-            references=references,
-            predictions=generations,
-            num_workers=None
+        results, all_results = code_metric.compute(
+            references=references, predictions=generations, num_workers=None
         )
-        return results
+        all_results = [
+            (k, vmod)
+            for k, v in all_results.items()
+            for vmod in [[(vi[1]["passed"], vi[1]["result"]) for vi in v]]
+        ]
+        all_results = sorted(all_results, key=lambda x: x[0])
+        all_results = [v for _, v in all_results]
+        return results, all_results
